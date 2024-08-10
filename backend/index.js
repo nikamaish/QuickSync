@@ -14,15 +14,7 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-
-const io = socketio(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
-    credentials: true
-  }
-});
+const io = socketio(server);
 
 const botName = "ChatCord Bot";
 
@@ -39,6 +31,10 @@ redisClient.on('error', (err) => {
   console.error('Redis error:', err);
 });
 
+// Serve static files from the React app build folder
+app.use(express.static(path.join(__dirname, "frontend/build")));
+
+// Socket.io logic
 io.on("connection", (socket) => {
   socket.on("joinRoom", ({ username, room }) => {
     const user = userJoin(socket.id, username, room);
@@ -72,6 +68,11 @@ io.on("connection", (socket) => {
       });
     }
   });
+});
+
+// Catch-all route to serve the React app's index.html
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend/build", "index.html"));
 });
 
 const PORT = process.env.PORT || 5000;

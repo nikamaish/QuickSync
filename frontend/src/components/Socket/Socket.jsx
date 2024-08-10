@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
-const URL = "http://localhost:5000"; // The backend server URL
-const socket = io(URL);
+// Since your React frontend is now served by the same Express server,
+// you can omit the URL or use relative paths
+const socket = io(); // Automatically connects to the origin where the page is served
 
 export default socket;
