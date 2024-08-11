@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import Qs from 'qs';
 
@@ -8,7 +8,8 @@ const Chat = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-  const socket = io();
+  const socketRef = useRef();
+  const [debug, setDebug] = useState([]);
 
   useEffect(() => {
     // Parse username and room from the URL
@@ -18,25 +19,46 @@ const Chat = () => {
     setUsername(username);
     setRoom(room);
 
+    // Create socket connection
+    socketRef.current = io();
+
+    // Log connection status
+    socketRef.current.on('connect', () => {
+      addDebug('Connected to server');
+    });
+
     // Join the chat room
-    socket.emit('joinRoom', { username, room });
+    socketRef.current.emit('joinRoom', { username, room });
 
     // Listen for room and user updates
-    socket.on('roomUsers', ({ room, users }) => {
+    socketRef.current.on('roomUsers', ({ room, users }) => {
       setRoom(room);
       setUsers(users);
+      addDebug(`Room updated: ${room}, Users: ${users.map(u => u.username).join(', ')}`);
+    });
+
+    // Listen for message history
+    socketRef.current.on('messageHistory', (history) => {
+      setMessages(history);
+      addDebug(`Received message history: ${history.length} messages`);
     });
 
     // Listen for messages from the server
-    socket.on('message', (message) => {
+    socketRef.current.on('message', (message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
+      addDebug(`Received message: ${JSON.stringify(message)}`);
     });
 
     // Clean up on component unmount
     return () => {
-      socket.disconnect();
+      socketRef.current.disconnect();
     };
-  }, [socket]);
+  }, []);
+
+  const addDebug = (message) => {
+    setDebug((prev) => [...prev, `${new Date().toISOString()}: ${message}`]);
+    console.log(message); // Also log to console for easier debugging
+  };
 
   // Handle message submission
   const handleSubmit = (e) => {
@@ -46,7 +68,8 @@ const Chat = () => {
     if (!trimmedMessage) return;
 
     // Emit the message to the server
-    socket.emit('chatMessage', trimmedMessage);
+    socketRef.current.emit('chatMessage', trimmedMessage);
+    addDebug(`Sent message: ${trimmedMessage}`);
 
     // Clear the input
     setMessage('');
@@ -94,6 +117,12 @@ const Chat = () => {
           <button type="submit">Send</button>
         </form>
       </main>
+      <div className="debug-log">
+        <h3>Debug Log:</h3>
+        {debug.map((log, index) => (
+          <p key={index}>{log}</p>
+        ))}
+      </div>
     </div>
   );
 };
